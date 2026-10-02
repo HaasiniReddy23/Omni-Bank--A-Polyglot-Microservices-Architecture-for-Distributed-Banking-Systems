@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+ledger-service/target/
+ledger-service/src/main/target/
+
+node_modules/
+
+.idea/
+.vscode/
+
+*.log
+.DS_Store

@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: omnibank-postgres
+    environment:
+      POSTGRES_DB: omnibank
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: omnibank-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnibank-fastapi
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: omnibank
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+
+  ledger-service:
+    build:
+      context: ./ledger-service
+      dockerfile: Dockerfile
+    container_name: omnibank-ledger
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: omnibank-notification
+    depends_on:
+      - rabbitmq
+      - mongodb
+    ports:
+      - "8082:8082"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      MONGO_URL: mongodb://mongodb:27017
+      MONGO_DB: omnibank
+
+  mongodb:
+    image: mongo:7
+    container_name: omnibank-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+volumes:
+  postgres_data:
+  mongo_data:

@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OmniBank — Core Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        #07080c;
+    --panel:     #0e1017;
+    --panel-alt: #0b0d13;
+    --line:      rgba(255,255,255,0.08);
+    --line-soft: rgba(255,255,255,0.045);
+    --text:      #edeef2;
+    --dim:       #8b90a0;
+    --dimmer:    #565c6c;
+    --gold:      #d9b475;
+    --gold-soft: rgba(217,180,117,0.16);
+    --gold-line: rgba(217,180,117,0.4);
+    --gold-glow: rgba(217,180,117,0.35);
+    --bad:       #c98a6b;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ min-height:100%; }
+
+  body{
+    background:
+      radial-gradient(ellipse 1000px 560px at 18% -8%, rgba(217,180,117,0.09), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 100%, rgba(217,180,117,0.05), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  .caption{ font-family:'Bodoni Moda', serif; font-style:italic; font-weight:400; letter-spacing:0.01em; }
+  .display{ font-family:'Bodoni Moda', serif; font-weight:600; letter-spacing:-0.01em; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  /* ================= LOGIN GATE ================= */
+  #login-gate{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .login-card{
+    width:100%;
+    max-width:400px;
+    border:1px solid var(--line);
+    border-radius:18px;
+    background:rgba(255,255,255,0.015);
+    padding:40px 36px 34px;
+    text-align:center;
+  }
+  .login-mark{
+    width:52px; height:52px;
+    margin:0 auto 18px;
+    border:1px solid var(--gold-line);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:24px; color:var(--gold);
+  }
+  .login-card h1{ font-size:26px; color:#fff; margin-bottom:6px; }
+  .login-card .sub{ font-size:13px; color:var(--dim); margin-bottom:28px; }
+  .login-card .field{ text-align:left; margin-bottom:14px; }
+  .login-card .auth-btn{ width:100%; margin-top:6px; }
+  .login-hint{ margin-top:16px; font-size:11.5px; color:var(--dimmer); }
+
+  /* ================= APP SHELL ================= */
+  #app-shell{ display:none; }
+  #app-shell.visible{ display:flex; }
+
+  .rail{
+    width:88px;
+    flex-shrink:0;
+    background:#050609;
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:28px 0 20px;
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+    min-height:100vh;
+    gap:26px;
+  }
+  .mark{
+    width:38px; height:38px;
+    border:1px solid var(--gold-line);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bodoni Moda', serif;
+    font-size:18px; font-weight:600;
+    color:var(--gold);
+    flex-shrink:0;
+  }
+  .rail-nav{ display:flex; flex-direction:column; gap:10px; flex:1; }
+  .rail-item{
+    width:52px; height:44px;
+    border-radius:11px;
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--dimmer);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.03em;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .rail-item.active{ color:var(--gold); background:var(--gold-soft); border-color:var(--gold-line); }
+  .rail-item:not(.active):hover{ color:var(--text); background:var(--line-soft); }
+  .rail-item:focus-visible{ outline:1.5px solid var(--gold); outline-offset:2px; }
+  .rail-logout{
+    width:52px; height:38px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--dimmer);
+    font-size:10px;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .rail-logout:hover{ color:var(--bad); border-color:var(--bad); }
+
+  main.stage{ flex:1; min-width:0; padding:36px 48px 60px; display:flex; justify-content:center; }
+  .stage-inner{ width:100%; max-width:1120px; display:flex; flex-direction:column; gap:18px; }
+
+  .view{ display:none; flex-direction:column; gap:18px; }
+  .view.active-view{ display:flex; }
+
+  .stage-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap; }
+  .stage-head h1{ font-size:32px; color:#fff; }
+  .stage-head .sub{ margin-top:6px; font-size:13.5px; color:var(--dim); max-width:52ch; line-height:1.6; }
+
+  .session-badge{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--dim); white-space:nowrap; }
+  .dot{ width:6px; height:6px; border-radius:50%; background:var(--gold); box-shadow:0 0 8px var(--gold-glow); animation:pulse 2.2s ease-in-out infinite; }
+  .dot-off{ width:6px; height:6px; border-radius:50%; background:var(--dimmer); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  /* Stat cards */
+  .stat-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+  .stat{ border:1px solid var(--line); border-radius:14px; padding:20px 22px; background:rgba(255,255,255,0.012); }
+  .stat-label{ font-size:13px; color:var(--dim); margin-bottom:10px; }
+  .stat-value{ font-size:26px; font-weight:500; letter-spacing:0.01em; }
+  .stat-value.gold{ color:var(--gold); }
+  .stat-value.bad{ color:var(--bad); }
+  @media (max-width:900px){ .stat-row{ grid-template-columns:repeat(2,1fr); } }
+
+  /* Panel / table shared look */
+  .panel{ border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .panel-head{ display:flex; justify-content:space-between; align-items:center; padding:16px 22px; font-size:14px; color:var(--dim); border-bottom:1px solid var(--line); gap:14px; flex-wrap:wrap; }
+  .panel-head .search-input{ background:var(--panel-alt); border:1px solid var(--line); border-radius:9px; padding:8px 12px; color:var(--text); font-size:12.5px; font-family:'Inter',sans-serif; outline:none; min-width:180px; }
+  .panel-head .search-input:focus{ border-color:var(--gold-line); }
+  .panel-body{ max-height:360px; overflow-y:auto; }
+  .row{ display:flex; align-items:center; gap:14px; padding:14px 22px; border-bottom:1px solid var(--line-soft); font-size:13.5px; }
+  .row:last-child{ border-bottom:none; }
+  .row .c-id{ width:44px; color:var(--dimmer); flex-shrink:0; }
+  .row .c-main{ flex:1; color:var(--text); }
+  .row .c-sub{ width:120px; color:var(--dim); flex-shrink:0; }
+  .row .c-amt{ width:130px; text-align:right; flex-shrink:0; }
+  .row .c-status{ width:100px; text-align:right; flex-shrink:0; }
+  .status-ok{ color:var(--gold); }
+  .status-bad{ color:var(--bad); }
+
+  /* Smart Search results */
+
+.semantic-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.semantic-result:last-child {
+    border-bottom: none;
+}
+
+.semantic-result-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.semantic-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.semantic-accounts {
+    font-size: 13px;
+    color: var(--dim);
+    margin-bottom: 5px;
+}
+
+.semantic-accounts span {
+    margin: 0 6px;
+    color: var(--gold);
+}
+
+.semantic-description {
+    font-size: 13px;
+    color: var(--dim);
+}
+
+.semantic-result-side {
+    flex-shrink: 0;
+    min-width: 120px;
+    text-align: right;
+}
+
+.semantic-amount {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.semantic-status {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.semantic-status.success {
+    color: var(--gold);
+}
+
+.semantic-status.failed {
+    color: var(--bad);
+}
+
+  .avatar{
+    flex-shrink:0; width:32px; height:32px; border-radius:50%;
+    border:1px solid var(--gold-line); background:var(--gold-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--gold);
+  }
+
+  .empty-state, .error-state, .notice-state{ padding:36px 22px; text-align:center; font-size:13px; color:var(--dimmer); line-height:1.6; }
+  .error-state{ color:var(--bad); }
+  .notice-state{ color:var(--dim); }
+
+  /* Auth-style cards, fields, buttons (reused everywhere) */
+  .card-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:860px){ .card-grid{ grid-template-columns:1fr; } }
+  .auth-card{ border:1px solid var(--line); border-radius:16px; padding:24px 26px 26px; background:rgba(255,255,255,0.012); display:flex; flex-direction:column; gap:16px; }
+  .auth-card h3{ font-size:17px; color:#fff; font-weight:600; }
+  .auth-card .auth-sub{ font-size:12.5px; color:var(--dim); margin-top:-10px; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12.5px; color:var(--dim); }
+  .field input, .field select{
+    background:var(--panel-alt); border:1px solid var(--line); border-radius:9px;
+    padding:10px 12px; color:var(--text); font-family:'IBM Plex Mono', monospace;
+    font-size:13px; outline:none; transition:border-color .15s ease;
+  }
+  .field input:focus, .field select:focus{ border-color:var(--gold-line); }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .auth-btn{
+    background:transparent; color:var(--gold); border:1px solid var(--gold-line);
+    padding:10px 18px; font-size:13px; font-weight:500; font-family:'Inter',sans-serif;
+    border-radius:9px; cursor:pointer; transition:background .18s ease, color .18s ease, transform .15s ease;
+  }
+  .auth-btn:hover{ background:var(--gold); color:#1a1508; transform:translateY(-1px); }
+  .auth-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+  .auth-btn.ghost{ color:var(--dim); border-color:var(--line); }
+  .auth-btn.ghost:hover{ background:rgba(255,255,255,0.04); color:var(--text); }
+  .auth-btn.block{ width:100%; }
+
+  .inline-msg{ font-size:12.5px; line-height:1.5; min-height:1px; }
+  .inline-msg.success{ color:var(--gold); }
+  .inline-msg.error{ color:var(--bad); }
+
+  .chip-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    padding:6px 12px; border:1px solid var(--line); border-radius:100px;
+    font-size:11.5px; color:var(--dim); cursor:pointer; background:transparent;
+    font-family:'Inter',sans-serif; transition:border-color .15s ease, color .15s ease;
+  }
+  .chip:hover{ border-color:var(--gold-line); color:var(--gold); }
+
+  /* Modal */
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(3,4,6,0.7);
+    align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .modal-backdrop.visible{ display:flex; }
+  .modal-card{ width:100%; max-width:380px; }
+
+  ::-webkit-scrollbar{ width:10px; }
+  ::-webkit-scrollbar-track{ background:rgba(255,255,255,0.02); }
+  ::-webkit-scrollbar-thumb{ background:var(--gold); border-radius:8px; border:2px solid var(--panel-alt); background-clip:padding-box; }
+
+  @media (prefers-reduced-motion: reduce){ .dot{ animation:none; } }
+
+  @media (max-width:720px){
+    #app-shell.visible{ flex-direction:column; }
+    .rail{ width:100%; height:auto; min-height:0; flex-direction:row; padding:14px 16px; position:static; }
+    .rail-nav{ flex-direction:row; overflow-x:auto; }
+    main.stage{ padding:24px 18px 40px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ================= LOGIN GATE ================= -->
+  <div id="login-gate">
+    <div class="login-card">
+      <div class="login-mark">Ω</div>
+      <h1 class="display">OmniBank</h1>
+      <p class="sub">Staff sign-in — core ledger access.</p>
+
+      <div class="field">
+        <label for="login-username">Username</label>
+        <input id="login-username" type="text" autocomplete="off" placeholder="admin">
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="off" placeholder="••••••••">
+      </div>
+      <button class="auth-btn block" onclick="doLogin()">Log in</button>
+      <p class="inline-msg" id="login-msg" style="margin-top:10px;"></p>
+
+      <p class="login-hint">Demo credentials — admin / admin123</p>
+    </div>
+  </div>
+
+  <!-- ================= APP SHELL ================= -->
+  <div id="app-shell">
+    <aside class="rail">
+      <div class="mark">Ω</div>
+      <nav class="rail-nav">
+        <button class="rail-item active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</button>
+        <button class="rail-item" data-view="accounts" onclick="showView('accounts')">Accounts</button>
+        <button class="rail-item" data-view="transfer" onclick="showView('transfer')">Transfer</button>
+        <button class="rail-item" data-view="ledger" onclick="showView('ledger')">Ledger</button>
+        <button class="rail-item" data-view="search" onclick="showView('search')">Search</button>
+        <button class="rail-item" data-view="activity" onclick="showView('activity')">Activity</button>
+      </nav>
+        <button type="button" onclick="doLogout()">Log out</button>
+    </aside>
+
+    <main class="stage">
+      <div class="stage-inner">
+
+        <div class="stage-head">
+          <div>
+            <h1 class="display" id="view-title">Dashboard</h1>
+            <p class="sub" id="view-sub">Account balances and transfer activity, synced live from the FastAPI gateway.</p>
+          </div>
+          <span class="session-badge" id="session-badge"><span class="dot"></span>Logged in</span>
+        </div>
+
+        <!-- ============ DASHBOARD VIEW ============ -->
+        <section class="view active-view" id="view-dashboard">
+          <p class="caption" style="font-size:16px; color:var(--dim);" id="dashboard-greeting">Welcome back.</p>
+
+          <div class="stat-row">
+            <div class="stat">
+              <p class="stat-label caption">Total balance</p>
+              <p class="stat-value gold mono" id="stat-total">₹0.00</p>
+            </div>
+            <div class="stat">
+              <p class="stat-label caption">Accounts</p>
+              <p class="stat-value mono" id="stat-accounts">0</p>
+            </div>
+            <div class="stat">
+              <p class="stat-label caption">Successful transfers</p>
+              <p class="stat-value mono" id="stat-success">0</p>
+            </div>
+            <div class="stat">
+              <p class="stat-label caption">Failed transfers</p>
+              <p class="stat-value bad mono" id="stat-failed">0</p>
+            </div>
+          </div>
+
+          <div class="chip-row">
+            <button class="auth-btn" onclick="showView('transfer')">New Transfer</button>
+            <button class="auth-btn ghost" onclick="openCreateAccount()">Create Account</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <span class="caption">Recent activity</span>
+              <span style="font-size:11.5px; color:var(--dimmer);">Latest transfer attempts, success or failed</span>
+            </div>
+            <div class="panel-body" id="dashboard-activity">
+              <div class="empty-state">No connection yet.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ ACCOUNTS VIEW ============ -->
+        <section class="view" id="view-accounts">
+          <div class="panel">
+            <div class="panel-head">
+              <span class="caption">All accounts</span>
+              <input class="search-input" id="accounts-search" placeholder="Search by name…" oninput="renderAccounts()">
+              <button class="auth-btn" onclick="openCreateAccount()">+ Create account</button>
+            </div>
+            <div class="panel-body" id="accounts-table">
+              <div class="empty-state">No connection yet.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ TRANSFER VIEW ============ -->
+        <section class="view" id="view-transfer">
+          <div class="card-grid">
+            <div class="auth-card">
+              <h3>Send transfer</h3>
+              <p class="auth-sub">Calls the real /transfer/ endpoint — atomic debit + credit, rolled back on failure.</p>
+              <div class="field-row">
+                <div class="field">
+                  <label for="transfer-from">From account</label>
+                  <select id="transfer-from"><option value="">— select —</option></select>
+                </div>
+                <div class="field">
+                  <label for="transfer-to">To account</label>
+                  <select id="transfer-to"><option value="">— select —</option></select>
+                </div>
+              </div>
+              <div class="field">
+                <label for="transfer-amount">Amount (₹)</label>
+                <input id="transfer-amount" type="number" placeholder="100">
+              </div>
+              <button class="auth-btn" onclick="doTransfer()">Confirm transfer</button>
+              <p class="inline-msg" id="transfer-msg"></p>
+            </div>
+
+            <div class="auth-card">
+              <h3>How this stays safe</h3>
+              <p class="auth-sub" style="margin-top:0;">The transfer endpoint locks the sender's row, checks the balance, and only commits if both the debit and credit succeed. Any failure — insufficient funds, a bad account ID — rolls back the entire attempt automatically. Nothing is ever left half-updated.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ LEDGER VIEW ============ -->
+        <section class="view" id="view-ledger">
+          <div class="panel">
+            <div class="panel-head">
+              <span class="caption">Transaction ledger</span>
+              <input class="search-input" id="ledger-search" placeholder="Filter by status or account id…" oninput="renderLedger()">
+            </div>
+            <div class="panel-body" id="ledger-table">
+              <div class="empty-state">No connection yet.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ SEARCH VIEW ============ -->
+        <section class="view" id="view-search">
+          <div class="auth-card">
+            <h3>Smart transaction search</h3>
+            <p class="auth-sub">Search transactions by meaning, not just exact text — e.g. "coffee spending", "failed transactions", "account 3".</p>
+            <div class="field">
+    <label for="search-input">Search query</label>
+
+    <input
+        id="search-input"
+        type="text"
+        placeholder="Try: failed transactions"
+        onkeydown="if(event.key === 'Enter') semanticSearch()"
+    >
+
+    <button class="chip" onclick="semanticSearch()">Search</button>
+</div>
+            <div class="chip-row">
+              <button class="chip" onclick="fillSearch('coffee spending')">coffee spending</button>
+              <button class="chip" onclick="fillSearch('failed transactions')">failed transactions</button>
+              <button class="chip" onclick="fillSearch('account 3')">account 3</button>
+            </div>
+            <div id="semantic-search-results" class="panel-body">
+    <div class="empty-state">Enter a search query.</div>
+</div>
+          
+          </div>
+        </section>
+
+        <!-- ============ ACTIVITY / NOTIFICATIONS VIEW ============ -->
+        <section class="view" id="view-activity">
+          <div class="auth-card" style="gap:8px;">
+            <h3>Live notifications</h3>
+
+<p class="auth-sub" style="margin-top:0;">
+    Transaction events delivered through RabbitMQ and stored in MongoDB.
+</p>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span class="caption">Recent Transactions Events</span></div>
+            <div class="panel-body" id="activity-table">
+              <div class="empty-state">No connection yet.</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ================= CREATE ACCOUNT MODAL ================= -->
+  <div class="modal-backdrop" id="create-account-modal">
+    <div class="auth-card modal-card">
+      <h3>Create account</h3>
+      <p class="auth-sub">Calls POST /accounts/ — requires you to be logged in.</p>
+      <div class="field">
+        <label for="new-account-name">Account holder name</label>
+        <input id="new-account-name" type="text" placeholder="e.g. Priya Nair">
+      </div>
+      <div class="field">
+        <label for="new-account-balance">Starting balance (₹)</label>
+        <input id="new-account-balance" type="number" placeholder="0">
+      </div>
+      <div class="chip-row">
+        <button class="auth-btn" onclick="doCreateAccount()">Create</button>
+        <button class="auth-btn ghost" onclick="closeCreateAccount()">Cancel</button>
+      </div>
+      <p class="inline-msg" id="create-account-msg"></p>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  let authToken = null;
+  let currentUsername = '';
+  let cachedAccounts = [];
+  let cachedTransactions = [];
+
+  function initials(name){
+    const parts = name.trim().split(/\s+/);
+    const first = parts[0]?.[0] || '';
+    const second = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + second).toUpperCase();
+  }
+
+  function money(n){
+    return '\u20b9' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function authHeaders(json){
+    const h = json ? { 'Content-Type': 'application/json' } : {};
+    if(authToken){ h['Authorization'] = 'Bearer ' + authToken; }
+    return h;
+  }
+
+  /* ---------------- Login / Logout ---------------- */
+ function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+
+    if (!username || !password) {
+        msg.textContent = 'Please enter username and password.';
+        msg.className = 'inline-msg error';
+        return;
+    }
+
+    msg.textContent = 'Logging in…';
+    msg.className = 'inline-msg';
+
+    const body = new URLSearchParams();
+    body.set('username', username);
+    body.set('password', password);
+
+    fetch('http://localhost:8000/login/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body.toString()
+    })
+    .then(async response => {
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                typeof data.detail === 'string'
+                    ? data.detail
+                    : 'Login failed.'
+            );
+        }
+
+        return data;
+    })
+    .then(data => {
+        authToken = data.access_token;
+        currentUsername = username;
+
+        msg.textContent = '';
+
+        document.getElementById('login-gate').style.display = 'none';
+
+        document.getElementById('app-shell').classList.add('visible');
+        document.getElementById('app-shell').style.display = 'flex';
+
+        document.getElementById('dashboard-greeting').textContent =
+            'Welcome back, ' + username + '.';
+
+        document.getElementById('session-badge').innerHTML =
+            '<span class="dot"></span>Logged in as ' + username;
+
+        refreshAll();
+    })
+    .catch(err => {
+        console.error('Login error:', err);
+
+        authToken = null;
+
+        msg.textContent = err.message || 'Unable to connect to server.';
+        msg.className = 'inline-msg error';
+    });
+}
+
+  /* ---------------- View switching ---------------- */
+  const viewMeta = {
+    dashboard: ['Dashboard', 'Account balances and transfer activity, synced live from the FastAPI gateway.'],
+    accounts:  ['Accounts', 'Every account on the ledger — search, or create a new one.'],
+    transfer:  ['Transfer money', 'Move funds between two accounts. Atomic, ACID-safe, backed by the real ledger.'],
+    ledger:    ['Transaction ledger', 'Every transfer attempt ever made — successful or rejected.'],
+    search: ['Smart search', 'Search transactions by meaning using vector embeddings.'],
+    activity:  ['Activity', 'Recent banking events.']
+  };
+
+  function showView(name){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active-view'));
+    document.getElementById('view-' + name).classList.add('active-view');
+    document.querySelectorAll('.rail-item').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+    document.getElementById('view-title').textContent = viewMeta[name][0];
+    document.getElementById('view-sub').textContent = viewMeta[name][1];
+  }
+
+  /* ---------------- Data loading ---------------- */
+  function refreshAll(){
+    fetchAccounts();
+    fetchTransactions();
+  }
+
+  function fetchAccounts(){
+    fetch(API_BASE + '/users/')
+      .then(r => r.json())
+      .then(data => {
+        cachedAccounts = data.accounts || [];
+        renderDashboardStats();
+        renderAccounts();
+        renderTransferDropdowns();
+      })
+      .catch(() => {
+        document.getElementById('accounts-table').innerHTML = '<div class="error-state">Connection refused — start your FastAPI server (uvicorn) on port 8000.</div>';
+      });
+  }
+
+  function fetchTransactions(){
+    fetch(API_BASE + '/transactions/', { headers: authHeaders(false) })
+      .then(r => r.json())
+      .then(data => {
+        cachedTransactions = data.transactions || [];
+        renderDashboardStats();
+        renderDashboardActivity();
+        renderLedger();
+        renderActivityStandIn();
+      })
+      .catch(() => {
+        document.getElementById('ledger-table').innerHTML = '<div class="error-state">Connection refused — start your FastAPI server (uvicorn) on port 8000.</div>';
+      });
+  }
+
+  function renderDashboardStats(){
+    const total = cachedAccounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
+    document.getElementById('stat-total').textContent = money(total);
+    document.getElementById('stat-accounts').textContent = cachedAccounts.length;
+    document.getElementById('stat-success').textContent = cachedTransactions.filter(t => t.status === 'SUCCESS').length;
+    document.getElementById('stat-failed').textContent = cachedTransactions.filter(t => t.status && t.status.startsWith('FAILED')).length;
+  }
+
+  function accountName(id){
+    const acc = cachedAccounts.find(a => a.id === id);
+    return acc ? acc.name : ('#' + id);
+  }
+
+  function transactionRow(t){
+    const ok = t.status === 'SUCCESS';
+    const when = t.created_at ? new Date(t.created_at).toLocaleString('en-IN') : '';
+    const shortStatus = ok ? 'SUCCESS' : (t.status && t.status.startsWith('FAILED') ? 'FAILED' : t.status);
+    return `
+      <div class="row">
+        <span class="c-id mono">#${t.id}</span>
+        <span class="c-main">${accountName(t.from_account_id)} → ${accountName(t.to_account_id)}</span>
+        <span class="c-sub mono">${when}</span>
+        <span class="c-amt mono">${money(t.amount)}</span>
+        <span class="c-status mono ${ok ? 'status-ok' : 'status-bad'}" title="${t.status}">${shortStatus}</span>
+      </div>`;
+  }
+
+  function renderDashboardActivity(){
+    const el = document.getElementById('dashboard-activity');
+    const recent = [...cachedTransactions].sort((a,b) => b.id - a.id).slice(0, 6);
+    el.innerHTML = recent.length
+      ? recent.map(transactionRow).join('')
+      : '<div class="empty-state">No transactions yet.</div>';
+  }
+
+  async function renderActivityStandIn(){
+    const el = document.getElementById('activity-table');
+
+    try {
+        const response = await fetch('http://localhost:8082/notifications');
+
+        if (!response.ok) {
+            throw new Error('Notification service unavailable');
+        }
+
+        const data = await response.json();
+        const notifications = data.notifications || [];
+
+        if (!notifications.length) {
+            el.innerHTML = '<div class="empty-state">No activity yet.</div>';
+            return;
+        }
+
+        el.innerHTML = notifications.map(n => {
+            const failed = n.status === 'FAILED';
+
+            return `
+                <div style="
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    gap:20px;
+                    padding:18px 22px;
+                    border-bottom:1px solid rgba(255,255,255,.07);
+                ">
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:15px;
+                        min-width:0;
+                    ">
+                        <div style="
+                            width:38px;
+                            height:38px;
+                            border-radius:50%;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:18px;
+                            border:1px solid ${failed ? 'rgba(220,100,80,.45)' : 'rgba(210,170,90,.45)'};
+                            color:${failed ? '#e58b78' : '#d9b56f'};
+                        ">
+                            ${failed ? '×' : '✓'}
+                        </div>
+
+                        <div>
+                            <div style="
+                                font-weight:600;
+                                font-size:15px;
+                                margin-bottom:5px;
+                            ">
+                                ${failed ? 'Transfer failed' : 'Transfer successful'}
+                            </div>
+
+                            <div style="
+                                color:#8290a8;
+                                font-size:13px;
+                            ">
+                                Account ${n.from_account_id}
+                                <span style="margin:0 7px;">→</span>
+                                Account ${n.to_account_id}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="
+                        text-align:right;
+                        flex-shrink:0;
+                    ">
+                        <div style="
+                            font-size:15px;
+                            font-weight:600;
+                            margin-bottom:5px;
+                        ">
+                            ₹${Number(n.amount).toLocaleString('en-IN')}
+                        </div>
+
+                        <div style="
+                            font-size:11px;
+                            letter-spacing:.08em;
+                            color:${failed ? '#e58b78' : '#d9b56f'};
+                        ">
+                            ${n.status}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Notification fetch failed:', error);
+
+        el.innerHTML =
+            '<div class="error-state">Unable to load notifications.</div>';
+    }
+}
+
+  function renderLedger(){
+    const el = document.getElementById('ledger-table');
+    const q = (document.getElementById('ledger-search').value || '').toLowerCase();
+    let rows = [...cachedTransactions].sort((a,b) => b.id - a.id);
+    if(q){
+      rows = rows.filter(t =>
+        (t.status || '').toLowerCase().includes(q) ||
+        String(t.from_account_id).includes(q) ||
+        String(t.to_account_id).includes(q)
+      );
+    }
+    el.innerHTML = rows.length
+      ? rows.map(transactionRow).join('')
+      : '<div class="empty-state">No matching transactions.</div>';
+  }
+
+  function renderAccounts(){
+    const el = document.getElementById('accounts-table');
+    const q = (document.getElementById('accounts-search').value || '').toLowerCase();
+    let rows = cachedAccounts;
+    if(q){ rows = rows.filter(a => a.name.toLowerCase().includes(q)); }
+    el.innerHTML = rows.length
+      ? rows.map(a => `
+        <div class="row">
+          <span class="c-id mono">#${a.id}</span>
+          <div class="avatar mono">${initials(a.name)}</div>
+          <span class="c-main">${a.name}</span>
+          <span class="c-amt mono">${money(a.balance)}</span>
+        </div>`).join('')
+      : '<div class="empty-state">No accounts found.</div>';
+  }
+
+  function renderTransferDropdowns(){
+    const opts = '<option value="">— select —</option>' +
+      cachedAccounts.map(a => `<option value="${a.id}">#${a.id} — ${a.name}</option>`).join('');
+    document.getElementById('transfer-from').innerHTML = opts;
+    document.getElementById('transfer-to').innerHTML = opts;
+  }
+
+  /* ---------------- Transfer ---------------- */
+  function doTransfer(){
+    const from = document.getElementById('transfer-from').value;
+    const to = document.getElementById('transfer-to').value;
+    const amount = document.getElementById('transfer-amount').value;
+    const msg = document.getElementById('transfer-msg');
+
+    if(!from || !to || !amount){
+      msg.textContent = 'Select both accounts and enter an amount.';
+      msg.className = 'inline-msg error';
+      return;
+    }
+
+    msg.textContent = 'Sending…';
+    msg.className = 'inline-msg';
+
+    fetch(API_BASE + '/transfer/', {
+      method: 'POST',
+      headers: authHeaders(true),
+      body: JSON.stringify({ from_account_id: Number(from), to_account_id: Number(to), amount: Number(amount) })
+    })
+      .then(async response => {
+        const data = await response.json();
+        if(!response.ok){
+          const prefix = response.status === 401 ? 'Blocked — log in first. ' : '';
+          throw new Error(prefix + (data.detail || 'Transfer failed.'));
+        }
+        return data;
+      })
+      .then(data => {
+        msg.textContent = data.message;
+        msg.className = 'inline-msg success';
+        refreshAll();
+      })
+      .catch(err => {
+        msg.textContent = err.message;
+        msg.className = 'inline-msg error';
+        refreshAll(); // even failed attempts get logged server-side — reflect that
+      });
+  }
+
+  /* ---------------- Create account ---------------- */
+  function openCreateAccount(){
+    document.getElementById('create-account-modal').classList.add('visible');
+    document.getElementById('new-account-name').value = '';
+    document.getElementById('new-account-balance').value = '';
+    document.getElementById('create-account-msg').textContent = '';
+  }
+  function closeCreateAccount(){
+    document.getElementById('create-account-modal').classList.remove('visible');
+  }
+  function doCreateAccount(){
+    const name = document.getElementById('new-account-name').value.trim();
+    const balance = document.getElementById('new-account-balance').value;
+    const msg = document.getElementById('create-account-msg');
+
+    if(!name){
+      msg.textContent = 'Enter a name first.';
+      msg.className = 'inline-msg error';
+      return;
+    }
+
+    fetch(API_BASE + '/accounts/', {
+      method: 'POST',
+      headers: authHeaders(true),
+      body: JSON.stringify({ name, balance: Number(balance) || 0 })
+    })
+      .then(async response => {
+        const data = await response.json();
+        if(!response.ok){
+          const prefix = response.status === 401 ? 'Blocked — log in first. ' : '';
+          throw new Error(prefix + (data.detail || 'Could not create account.'));
+        }
+        return data;
+      })
+      .then(() => {
+        closeCreateAccount();
+        refreshAll();
+      })
+      .catch(err => {
+        msg.textContent = err.message;
+        msg.className = 'inline-msg error';
+      });
+  }
+
+  /* ---------------- Smart search (honest placeholder) ---------------- */
+ async function semanticSearch(){
+    const q = document.getElementById('search-input').value.trim();
+    const el = document.getElementById('semantic-search-results');
+
+    if(!q){
+        el.innerHTML = '<div class="empty-state">Enter a search query.</div>';
+        return;
+    }
+
+    el.innerHTML = '<div class="empty-state">Searching...</div>';
+
+    try {
+        const response = await fetch(
+            `http://localhost:8000/search/?q=${encodeURIComponent(q)}`
+        );
+
+        if(!response.ok){
+            throw new Error('Search request failed');
+        }
+
+        const data = await response.json();
+
+        if(!data.results || data.results.length === 0){
+            el.innerHTML =
+                '<div class="empty-state">No matching transactions found.</div>';
+            return;
+        }
+
+        el.innerHTML = data.results.map(t => `
+            <div class="semantic-result">
+                <div class="semantic-result-main">
+                    <div class="semantic-title">
+                        Transaction #${t.id}
+                    </div>
+
+                    <div class="semantic-accounts">
+                        Account ${t.from_account_id}
+                        <span>→</span>
+                        Account ${t.to_account_id}
+                    </div>
+
+                    <div class="semantic-description">
+                        ${t.description || 'No description'}
+                    </div>
+                </div>
+
+                <div class="semantic-result-side">
+                    <div class="semantic-amount">
+                        ₹${Number(t.amount).toLocaleString('en-IN')}
+                    </div>
+
+                    <div class="semantic-status ${t.status === 'SUCCESS' ? 'success' : 'failed'}">
+                        ${t.status}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch(error) {
+        console.error(error);
+
+        el.innerHTML =
+            '<div class="empty-state">Unable to connect to search service.</div>';
+    }
+}
+
+  /* ---------------- Enter-key support ---------------- */
+  document.getElementById('login-password').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+  document.getElementById('search-input').addEventListener('keydown', e => {
+    if(e.key === 'Enter') semanticSearch();
+});
+
+  function doLogout() {
+    authToken = null;
+    currentUsername = '';
+
+    document.getElementById('app-shell').classList.remove('visible');
+    document.getElementById('app-shell').style.display = 'none';
+
+    document.getElementById('login-gate').style.display = 'flex';
+
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+
+    document.getElementById('login-msg').textContent = '';
+}
+</script>
+</body>
+</html>

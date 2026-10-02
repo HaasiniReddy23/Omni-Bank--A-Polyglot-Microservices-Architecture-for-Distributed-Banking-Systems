@@ -1,0 +1,15 @@
+{
+  "name": "omnibank-notification-service",
+  "version": "1.0.0",
+  "description": "OmniBank event-driven notification service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0"
+  }
+}
